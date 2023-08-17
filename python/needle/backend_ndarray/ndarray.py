@@ -24,7 +24,7 @@ class BackendDevice:
         return self.name + "()"
 
     def __getattr__(self, name):
-        return getattr(self.mod, name)
+        return getattr(self.mod, name) # 属性委托
 
     def enabled(self):
         return self.mod is not None
@@ -241,7 +241,9 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self._strides = self.compact_strides(new_shape)
+        self._shape = new_shape
+        return self.as_strided(self._shape, self._strides)
         ### END YOUR SOLUTION
 
     def permute(self, new_axes):
@@ -264,7 +266,12 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        shape_res = []
+        strides_res = []
+        for i in new_axes:
+            shape_res.append(self._shape[i])
+            strides_res.append(self._strides[i])
+        return self.as_strided(shape_res, strides_res)
         ### END YOUR SOLUTION
 
     def broadcast_to(self, new_shape):
@@ -285,7 +292,17 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        assert len(self._shape) == len(new_shape)
+        new_strides = list(self._strides)
+
+        for i in range(1,len(self.shape)+1):
+            if new_shape[-i] != self.shape[-i]:
+                assert self.shape[-i] == 1
+                new_strides[-i] = 0
+        
+        self._shape = new_shape
+        self._strides = tuple(new_strides)
+        return self.as_strided(self._shape, self._strides)
         ### END YOUR SOLUTION
 
     ### Get and set elements
@@ -348,7 +365,14 @@ class NDArray:
         assert len(idxs) == self.ndim, "Need indexes equal to number of dimensions"
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        shape = [(sl.stop - sl.start + sl.step - 1) // sl.step for sl in idxs]
+        offset = 0
+        strides = []
+        for i,slc in enumerate(idxs): 
+            offset += self._strides[i] * slc.start
+            strides.append(self._strides[i] * slc.step)
+        
+        return NDArray.make(tuple(shape), tuple(strides), self._device, self._handle, offset)
         ### END YOUR SOLUTION
 
     def __setitem__(self, idxs, other):
